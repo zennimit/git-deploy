@@ -70,6 +70,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
         deploy_cmd = project["deploy_command"]
         log(f"deploying {repo}@{branch} in {directory}")
 
+        env = os.environ.copy()
+        env.setdefault("HOME", "/root")
+        env.setdefault("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+        env.setdefault("GIT_TERMINAL_PROMPT", "0")
+
         try:
             result = subprocess.run(
                 deploy_cmd,
@@ -78,12 +83,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 capture_output=True,
                 text=True,
                 timeout=300,
+                env=env,
             )
+            log(f"deployed {repo}: exit={result.returncode}")
+            if result.stdout.strip():
+                log(f"  stdout: {result.stdout.strip()}")
+            if result.stderr.strip():
+                log(f"  stderr: {result.stderr.strip()}")
             output = (
                 f"repo: {repo}\nbranch: {branch}\nexit: {result.returncode}\n"
                 f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
             )
-            log(f"deployed {repo}: exit={result.returncode}")
             self._respond(200 if result.returncode == 0 else 500, output)
         except subprocess.TimeoutExpired:
             log(f"deploy timeout: {repo}")

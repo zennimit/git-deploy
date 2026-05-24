@@ -6,6 +6,8 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/python3 /opt/git-deploy/git-deploy.py
 WorkingDirectory=/opt/git-deploy
+Environment="HOME=/root"
+Environment="GIT_TERMINAL_PROMPT=0"
 Restart=always
 RestartSec=5
 
