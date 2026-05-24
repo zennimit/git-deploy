@@ -54,53 +54,58 @@ class WebhookHandler(BaseHTTPRequestHandler):
         ref = payload.get("ref", "")
         branch = ref.split("/")[-1] if ref.startswith("refs/heads/") else None
 
-        project = config.get("projects", {}).get(repo)
-        if not project:
-            log(f"ignored: {repo} not in config")
-            self._respond(200, f"ignored: {repo} not configured")
+        matched = []
+        for key, proj in config.get("projects", {}).items():
+            proj_repo = key.split("@")[0] if "@" in key else key
+            proj_branch = proj.get("branch", "main")
+            if proj_repo == repo and proj_branch == branch:
+                matched.append((key, proj))
+
+        if not matched:
+            log(f"ignored: {repo} push to {branch}, no matching config")
+            self._respond(200, f"ignored: {repo}@{branch} not configured")
             return
 
-        target_branch = project.get("branch", "main")
-        if branch != target_branch:
-            log(f"ignored: {repo} push to {branch}, watching {target_branch}")
-            self._respond(200, f"ignored: branch {branch}")
-            return
-
-        directory = project["directory"]
-        deploy_cmd = project["deploy_command"]
-        log(f"deploying {repo}@{branch} in {directory}")
-
+        outputs = []
         env = os.environ.copy()
         env.setdefault("HOME", "/root")
         env.setdefault("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
         env.setdefault("GIT_TERMINAL_PROMPT", "0")
 
-        try:
-            result = subprocess.run(
-                deploy_cmd,
-                shell=True,
-                cwd=directory,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                env=env,
-            )
-            log(f"deployed {repo}: exit={result.returncode}")
-            if result.stdout.strip():
-                log(f"  stdout: {result.stdout.strip()}")
-            if result.stderr.strip():
-                log(f"  stderr: {result.stderr.strip()}")
-            output = (
-                f"repo: {repo}\nbranch: {branch}\nexit: {result.returncode}\n"
-                f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
-            )
-            self._respond(200 if result.returncode == 0 else 500, output)
-        except subprocess.TimeoutExpired:
-            log(f"deploy timeout: {repo}")
-            self._respond(500, f"deploy timed out after 300s")
-        except Exception as e:
-            log(f"deploy error: {repo}: {e}")
-            self._respond(500, str(e))
+        all_ok = True
+        outputs = []
+        for key, project in matched:
+            directory = project["directory"]
+            deploy_cmd = project["deploy_command"]
+            log(f"deploying {key} in {directory}")
+            try:
+                result = subprocess.run(
+                    deploy_cmd,
+                    shell=True,
+                    cwd=directory,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    env=env,
+                )
+                log(f"deployed {key}: exit={result.returncode}")
+                if result.stdout.strip():
+                    log(f"  stdout: {result.stdout.strip()}")
+                if result.stderr.strip():
+                    log(f"  stderr: {result.stderr.strip()}")
+                outputs.append(f"[{key}] exit={result.returncode}\n{result.stdout}{result.stderr}")
+                if result.returncode != 0:
+                    all_ok = False
+            except subprocess.TimeoutExpired:
+                log(f"deploy timeout: {key}")
+                outputs.append(f"[{key}] TIMEOUT")
+                all_ok = False
+            except Exception as e:
+                log(f"deploy error: {key}: {e}")
+                outputs.append(f"[{key}] ERROR: {e}")
+                all_ok = False
+
+        self._respond(200 if all_ok else 500, "\n".join(outputs))
 
     def do_GET(self):
         if self.path == "/health":
