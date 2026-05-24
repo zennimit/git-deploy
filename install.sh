@@ -10,7 +10,14 @@ if ! command -v python3 &>/dev/null; then
 fi
 
 # Install pyyaml
-pip3 install pyyaml -q 2>/dev/null || pip install pyyaml -q
+if python3 -c "import yaml" 2>/dev/null; then
+  echo "pyyaml already installed"
+else
+  pip3 install pyyaml -q 2>/dev/null || pip install pyyaml -q 2>/dev/null || apt-get install -y python3-yaml -q 2>/dev/null || {
+    echo "Error: could not install pyyaml. Run: apt-get install python3-yaml"
+    exit 1
+  }
+fi
 
 # Clone or update
 if [ -d /opt/git-deploy/.git ]; then
