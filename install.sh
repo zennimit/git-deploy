@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 echo "=== git-deploy installer ==="
 
@@ -13,10 +12,12 @@ fi
 if python3 -c "import yaml" 2>/dev/null; then
   echo "pyyaml already installed"
 else
-  pip3 install pyyaml -q 2>/dev/null || pip install pyyaml -q 2>/dev/null || apt-get install -y python3-yaml -q 2>/dev/null || {
+  echo "Installing pyyaml..."
+  apt-get install -y python3-yaml -qq 2>/dev/null
+  if ! python3 -c "import yaml" 2>/dev/null; then
     echo "Error: could not install pyyaml. Run: apt-get install python3-yaml"
     exit 1
-  }
+  fi
 fi
 
 # Clone or update
