@@ -1,0 +1,18 @@
+listen_port: 9000
+webhook_secret: "CHANGE_ME"
+
+# Map GitHub repos to local project directories.
+# Key is the full GitHub repo name (owner/repo).
+# deploy_command runs in the project directory after a push to the watched branch.
+projects:
+  # Example: a Python web app
+  # yourname/my-app:
+  #   branch: main
+  #   directory: /opt/my-app
+  #   deploy_command: "git pull origin main && sudo systemctl restart my-app"
+
+  # Example: a Node.js app with dependency install
+  # yourname/frontend:
+  #   branch: main
+  #   directory: /opt/frontend
+  #   deploy_command: "git pull origin main && npm ci --production && sudo systemctl restart frontend"

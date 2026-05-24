@@ -1,0 +1,13 @@
+[Unit]
+Description=git-deploy webhook listener
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/git-deploy/git-deploy.py
+WorkingDirectory=/opt/git-deploy
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
